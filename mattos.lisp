@@ -2,6 +2,13 @@
 ;;;
 
 
+(defpackage :mattos
+  (:use :cl)
+  (:export :defobject
+           :defmeth))
+
+(in-package :mattos)
+
 (defparameter *global-lookaside* (make-hash-table))
 
 (defmacro mac (expr)
@@ -97,32 +104,3 @@
   (if (null lst)
     (list lst)
     lst))
-
-
-(defobject person
-           (name age))
-
-(defmeth person greet (name)
-         (format t "Hello, ~A!~%" name))
-
-(defobject astronaut
-           (helmet-size space-flights)
-           :inherits person)
-
-(astronaut matt)
-(matt 'greet "larry")
-
-(defmeth person greet (name)
-         (format t "Bonjour, ~A!~%" name))
-
-(matt 'greet "larry")
-
-(defobject square
-           (side color))
-
-(defmeth square area ()
-         (* side side))
-
-(square s)
-(s 'side 12)
-(format t "~A~%" (s 'area))
