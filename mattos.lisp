@@ -9,6 +9,7 @@
 
 (in-package :mattos)
 
+
 (defparameter *global-lookaside* (make-hash-table))
 
 (defmacro mac (expr)
@@ -33,31 +34,61 @@
              ((null args) attrval)
              (t (setf (gethash prop this) (car (wrap-if-nil args))))))))
 
-(defmacro class-mac (classname slotdefs)
+(defmacro class-mac (classname)
   `(defmacro ,classname (varname)
-     `(let ((this (make-hash-table)))
-        ,@',slotdefs
+     `(let ((this (get-default-instance ',',classname)))
         (instance-fn ,varname ',',classname))))
 
-(defmacro defobject (name slots &key (inherits nil))
-  (let ((slotdefs (slot-forms slots)))
-    `(progn (defparameter ,(class-table-symb name) (make-hash-table))
-            (setf (gethash 'parent ,(class-table-symb name)) ',inherits)
-            (class-mac ,name ,slotdefs))))
-
-(defun slot-forms (slots)
-  (loop for slot in slots
-        if (atom slot)
-          collect `(setf (gethash ',slot this) '(nil))
-        else
-          collect `(setf (gethash ',(car slot) this) ,(cadr slot))))
-        
+(defmacro defobject (classname slots &key (inherits nil))
+  `(progn (defparameter ,(class-table-symb classname) (make-hash-table))
+          (make-default-instance ',classname ',slots)
+          (setf (gethash 'parent ,(class-table-symb classname)) ',inherits)
+          (class-mac ,classname)))
 
 (defmacro defmeth (classname name args body)
   (let* ((classtab (class-table-val classname))
          (oldmethod (gethash name classtab)))
     (invalidate-lookaside oldmethod)
     `(setf (gethash ',name ,(class-table-symb classname)) #'(lambda (,@args) ,body))))
+
+(defun hash-table-copy (ht)
+  (let ((new-table (make-hash-table)))
+    (with-hash-table-iterator (get-entry ht)
+                              (labels ((try (got-one &optional key val)
+                                            (when got-one
+                                              (setf (gethash key new-table) val))))
+                                (multiple-value-call #'try (get-entry))))
+    new-table))
+
+(defun get-default-instance (classname)
+  (let* ((classtab (class-table-val classname))
+         (parent   (gethash 'parent classtab))
+         (default  (hash-table-copy (gethash 'default classtab))))
+    (if (null parent)
+      default
+      (merge-hash-tables default
+                         (get-default-instance parent)))))
+
+;;; Key value pairs are copied from table2 into table1, unless table1 already
+;;; contains that key.
+(defun merge-hash-tables (table1 table2)
+  (let ((new-table (hash-table-copy table1)))
+    (with-hash-table-iterator (get-entry table2)
+                              (labels ((try (got-one &optional key val)
+                                            (when got-one
+                                              (if (null (gethash key new-table))
+                                                (setf (gethash key new-table) val)))))
+                                (multiple-value-call #'try (get-entry))))
+    new-table))
+
+(defun make-default-instance (classname slots)
+  (let ((default (make-hash-table))
+        (classtab (class-table-val classname)))
+    (dolist (slot slots)
+      (if (atom slot)
+        (setf (gethash slot default) '(nil))
+        (setf (gethash (car slot) default) (cadr slot))))
+    (setf (gethash 'default classtab) default)))
 
 (defun invalidate-lookaside (methodval)
   (with-hash-table-iterator (get-entry *global-lookaside*)
@@ -114,3 +145,17 @@
   (if (null lst)
     (list lst)
     lst))
+
+;;; (defobject person ((name 'matt) age))
+;;; 
+;;; (defmeth person fly ()
+;;;          (format t "People can't fly!~%"))
+;;; 
+;;; (defobject astronaut (helmet-size space-flights)
+;;;            :inherits person)
+;;; 
+;;; (defmeth astronaut fly ()
+;;;          (format t "Fly to the moon!~%"))
+;;; 
+;;; (astronaut matt)
+;;; (matt 'fly)
