@@ -53,11 +53,7 @@
 
 (defun hash-table-copy (ht)
   (let ((new-table (make-hash-table)))
-    (with-hash-table-iterator (get-entry ht)
-                              (labels ((try (got-one &optional key val)
-                                            (when got-one
-                                              (setf (gethash key new-table) val))))
-                                (multiple-value-call #'try (get-entry))))
+    (maphash #'(lambda (k v) (setf (gethash k new-table) v)) ht)
     new-table))
 
 (defun get-default-instance (classname)
@@ -69,16 +65,13 @@
       (merge-hash-tables default
                          (get-default-instance parent)))))
 
-;;; Key value pairs are copied from table2 into table1, unless table1 already
-;;; contains that key.
+;;; Key value pairs are copied from table2 into a copy of table1,
+;;; unless table1 already contains that key.
 (defun merge-hash-tables (table1 table2)
   (let ((new-table (hash-table-copy table1)))
-    (with-hash-table-iterator (get-entry table2)
-                              (labels ((try (got-one &optional key val)
-                                            (when got-one
-                                              (if (null (gethash key new-table))
-                                                (setf (gethash key new-table) val)))))
-                                (multiple-value-call #'try (get-entry))))
+    (maphash #'(lambda (k v) (if (null (gethash k new-table))
+                               (setf (gethash k new-table) v)))
+             table2)
     new-table))
 
 (defun make-default-instance (classname slots)
@@ -91,12 +84,9 @@
     (setf (gethash 'default classtab) default)))
 
 (defun invalidate-lookaside (methodval)
-  (with-hash-table-iterator (get-entry *global-lookaside*)
-                            (labels ((invalidate (got-one &optional key val)
-                                         (when got-one
-                                           (if (equal methodval val)
-                                             (setf (gethash key *global-lookaside*) nil)))))
-                              (multiple-value-call #'invalidate (get-entry)))))
+  (maphash #'(lambda (k v) (if (equal methodval v)
+                             (setf (gethash k *global-lookaside*) nil)))
+           *global-lookaside*))
 
 (defun class-table-symb (classname)
   (symb (format nil "*~a*" classname)))
@@ -130,9 +120,9 @@
     nil
     (let* ((classtab (class-table-val classname))
            (m (gethash meth classtab)))
-      (if (null m)
-        (find-meth (gethash 'parent classtab) meth)
-        m))))
+      (if m
+        m
+        (find-meth (gethash 'parent classtab) meth)))))
 
 (defun mkstr (&rest args)
   (with-output-to-string (s)
@@ -146,16 +136,16 @@
     (list lst)
     lst))
 
-;;; (defobject person ((name 'matt) age))
-;;; 
-;;; (defmeth person fly ()
-;;;          (format t "People can't fly!~%"))
-;;; 
-;;; (defobject astronaut (helmet-size space-flights)
-;;;            :inherits person)
-;;; 
-;;; (defmeth astronaut fly ()
-;;;          (format t "Fly to the moon!~%"))
-;;; 
-;;; (astronaut matt)
-;;; (matt 'fly)
+; (defobject person ((name 'matt) age))
+; 
+; (defmeth person fly ()
+;          (format t "People can't fly!~%"))
+; 
+; (defobject astronaut (helmet-size space-flights)
+;            :inherits person)
+; 
+; (defmeth astronaut fly ()
+;          (format t "Fly to the moon!~%"))
+; 
+; (astronaut matt)
+; (matt 'fly)
