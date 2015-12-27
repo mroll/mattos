@@ -33,15 +33,18 @@
              ((null args) attrval)
              (t (setf (gethash prop this) (car (wrap-if-nil args))))))))
 
+(defmacro class-mac (classname slotdefs)
+  `(defmacro ,classname (varname)
+     `(let ((this (make-hash-table)))
+        ,@',slotdefs
+        (instance-fn ,varname ',',classname))))
+
 (defmacro defobject (name slots &key (inherits nil))
   (let ((slotdefs (loop for slot in slots
                         collect `(setf (gethash ',slot this) '(nil)))))
     `(progn (defparameter ,(class-table-symb name) (make-hash-table))
             (setf (gethash 'parent ,(class-table-symb name)) ',inherits)
-            (defmacro ,name (varname)
-              `(let ((this (make-hash-table)))
-                 ,@',slotdefs
-                 (instance-fn ,varname ',',name))))))
+            (class-mac ,name ,slotdefs))))
 
 (defmacro defmeth (classname name args body)
   (let* ((classtab (class-table-val classname))
