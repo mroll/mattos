@@ -1,17 +1,18 @@
 (load "mattos.lisp")
 
 
-(mattos:defobject person
-                  (name age))
+(mattos:defobject person ((name 'matt)
+                          (age  21)))
 
 (mattos:defmeth person greet (name)
                 (format t "Hello, ~A!~%" name))
 
-(mattos:defobject astronaut
-                  (helmet-size space-flights)
+(mattos:defobject astronaut (helmet-size
+                             (space-flights 0))
                   :inherits person)
 
 (astronaut matt)
+(format t "~A~%" (matt 'helmet-size))
 (matt 'greet "larry")
 
 (mattos:defmeth person greet (name)

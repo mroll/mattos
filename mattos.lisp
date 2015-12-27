@@ -40,11 +40,18 @@
         (instance-fn ,varname ',',classname))))
 
 (defmacro defobject (name slots &key (inherits nil))
-  (let ((slotdefs (loop for slot in slots
-                        collect `(setf (gethash ',slot this) '(nil)))))
+  (let ((slotdefs (slot-forms slots)))
     `(progn (defparameter ,(class-table-symb name) (make-hash-table))
             (setf (gethash 'parent ,(class-table-symb name)) ',inherits)
             (class-mac ,name ,slotdefs))))
+
+(defun slot-forms (slots)
+  (loop for slot in slots
+        if (atom slot)
+          collect `(setf (gethash ',slot this) '(nil))
+        else
+          collect `(setf (gethash ',(car slot) this) ,(cadr slot))))
+        
 
 (defmacro defmeth (classname name args body)
   (let* ((classtab (class-table-val classname))
