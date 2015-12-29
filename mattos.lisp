@@ -5,7 +5,8 @@
 (defpackage :mattos
   (:use :cl)
   (:export :defobject
-           :defmeth))
+           :defmeth
+           :this))
 
 (in-package :mattos)
 
@@ -40,7 +41,8 @@
 (defmacro class-mac (classname)
   `(defmacro ,classname (varname)
      `(let ((this (get-default-instance ',',classname)))
-        (instance-fn ,varname ',',classname))))
+        (instance-fn ,varname ',',classname)
+        (setf (gethash 'this this) #',varname))))
 
 (defmacro defobject (classname slots &key (inherits nil))
   `(progn (defparameter ,(class-table-symb classname) (make-hash-table))
@@ -48,11 +50,11 @@
           (setf (gethash 'parent ,(class-table-symb classname)) ',inherits)
           (class-mac ,classname)))
 
-(defmacro defmeth (classname name args body)
+(defmacro defmeth (classname name args &body body)
   (let* ((classtab (class-table-val classname))
          (oldmethod (gethash name classtab)))
     (invalidate-lookaside oldmethod)
-    `(setf (gethash ',name ,(class-table-symb classname)) #'(lambda (,@args) ,body))))
+    `(setf (gethash ',name ,(class-table-symb classname)) #'(lambda (,@args) ,@body))))
 
 (defun hash-table-copy (ht)
   (let ((new-table (make-hash-table)))
@@ -113,6 +115,7 @@
     (when (null m)
       (cache-method classname methname (find-meth (gethash 'parent classtab) methname))
       (setf m (get-cached-method classname methname)))
+    (setf (symbol-function 'this) (gethash 'this this))
     (with-hash-table this
                      (if args
                        (apply m args)
@@ -144,8 +147,11 @@
 ; (setf (gethash 'a h) 1)
 ; (setf (gethash 'b h) 2)
 ; (setf (gethash 'c h) 3)
+; (setf (gethash 'this h) #'(lambda (x) (+ x x)))
 ; (with-hash-table h
+;                  (print (this 4))
 ;                  (setf a 5))
+
 ; 
 ; (dolist (s (list 'a 'b 'c))
 ;   (print (gethash s h)))
@@ -157,6 +163,13 @@
 ; 
 ; (defmeth person fly ()
 ;          (format t "People can't fly!~%"))
+; 
+; (defmeth person fly2 ()
+;          (this 'fly))
+; 
+; (person matt)
+; (matt 'fly2)
+
 ; 
 ; (defobject astronaut (helmet-size space-flights)
 ;            :inherits person)

@@ -1,5 +1,9 @@
 (load "mattos.lisp")
 
+(defmacro mac (expr)
+  `(pprint (macroexpand-1 ',expr)))
+
+
 
 (mattos:defobject person ((name 'matt)
                           (age  21)))
@@ -29,3 +33,17 @@
 (square s)
 (s 'side 12)
 (format t "~A~%" (s 'area))
+
+(mattos:defmeth square testprint ()
+                  (format t "TESTPRINT~%"))
+
+(mattos:defmeth square othertestprint ()
+                (mattos:this 'testprint))
+
+(s 'othertestprint)
+
+; 
+; (macrolet ((this (arg)
+;                  `(funcall #'(lambda (x) (format t "~A~%" x)) ,arg)))
+;   (progv (list 'x 'y 'this) (list 1 2 3)
+;     (this this)))
