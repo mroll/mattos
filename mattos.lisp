@@ -19,17 +19,20 @@
 (defmacro with-hash-table (ht &body forms)
   (let ((symbs (gensym))
         (vals  (gensym))
-        (s     (gensym)))
+        (s     (gensym))
+        (res   (gensym)))
     `(let ((,symbs '())
-           (,vals  '()))
+           (,vals  '())
+           (,res   nil))
        (maphash #'(lambda (k v)
                     (push (symb (format nil "~A" k)) ,symbs)
                     (push v ,vals))
                 ,ht)
        (progv ,symbs ,vals
-         ,@forms
+         (setf ,res (progn ,@forms))
          (dolist (,s ,symbs)
-           (setf (gethash ,s ,ht) (symbol-value ,s)))))))
+           (setf (gethash ,s ,ht) (symbol-value ,s)))
+         ,res))))
 
 (defmacro instance-fn (varname classname)
   `(defun ,varname (prop &rest args)
@@ -148,10 +151,9 @@
 ; (setf (gethash 'b h) 2)
 ; (setf (gethash 'c h) 3)
 ; (setf (gethash 'this h) #'(lambda (x) (+ x x)))
-; (with-hash-table h
-;                  (print (this 4))
-;                  (setf a 5))
-
+; (print (with-hash-table h
+;                         (setf a 5)))
+; 
 ; 
 ; (dolist (s (list 'a 'b 'c))
 ;   (print (gethash s h)))
